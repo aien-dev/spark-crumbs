@@ -58,7 +58,10 @@ impl AboveValue {
             AboveValue::Structured(a) => a.clone(),
             AboveValue::Path(p) => {
                 let path = std::path::Path::new(p);
-                let name = path.file_name().map(|n| n.to_string_lossy().to_string()).unwrap_or_else(|| "above".to_string());
+                let name = path
+                    .file_name()
+                    .map(|n| n.to_string_lossy().to_string())
+                    .unwrap_or_else(|| "above".to_string());
                 AboveInfo {
                     path: "..".to_string(),
                     canonical: p.clone(),
@@ -69,7 +72,6 @@ impl AboveValue {
         }
     }
 }
-
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct BelowItem {
@@ -160,11 +162,11 @@ impl DirCrumb {
             .unwrap_or_else(|| "/".to_string());
 
         // Inspect Above
-        let home = std::env::var("HOME")
-            .or_else(|_| std::env::var("USERPROFILE"))
-            .unwrap_or_else(|_| "/".to_string());
         let above = if let Some(parent) = dir.parent() {
-            if parent.starts_with(&home) && parent != dir {
+            let home = std::env::var("HOME")
+                .or_else(|_| std::env::var("USERPROFILE"))
+                .unwrap_or_default();
+            if !home.is_empty() && parent.starts_with(&home) && parent != dir {
                 let p_canon = parent
                     .canonicalize()
                     .map(|p| p.to_string_lossy().to_string())
@@ -198,7 +200,11 @@ impl DirCrumb {
                 let is_dir = entry.file_type().map(|ft| ft.is_dir()).unwrap_or(false);
                 below.push(BelowItem {
                     name,
-                    item_type: if is_dir { "dir".to_string() } else { "file".to_string() },
+                    item_type: if is_dir {
+                        "dir".to_string()
+                    } else {
+                        "file".to_string()
+                    },
                     role: String::new(),
                 });
             }
@@ -224,7 +230,11 @@ pub fn load_or_init_dir_crumb(dir: &Path, purpose_opt: Option<CrumbPurpose>) -> 
     if crumb_path.exists() {
         if let Ok(content) = fs::read_to_string(&crumb_path) {
             match serde_json::from_str::<DirCrumb>(&content) {
-                Err(e) => eprintln!("Failed to parse DirCrumb at {}: {}", crumb_path.display(), e),
+                Err(e) => eprintln!(
+                    "Failed to parse DirCrumb at {}: {}",
+                    crumb_path.display(),
+                    e
+                ),
                 Ok(mut crumb) => {
                     // Refresh below items dynamically
                     let mut below = Vec::new();
@@ -237,7 +247,11 @@ pub fn load_or_init_dir_crumb(dir: &Path, purpose_opt: Option<CrumbPurpose>) -> 
                             let is_dir = entry.file_type().map(|ft| ft.is_dir()).unwrap_or(false);
                             below.push(BelowItem {
                                 name,
-                                item_type: if is_dir { "dir".to_string() } else { "file".to_string() },
+                                item_type: if is_dir {
+                                    "dir".to_string()
+                                } else {
+                                    "file".to_string()
+                                },
                                 role: String::new(),
                             });
                         }
@@ -252,14 +266,20 @@ pub fn load_or_init_dir_crumb(dir: &Path, purpose_opt: Option<CrumbPurpose>) -> 
                     let local_data = load_local_crumb(dir);
                     if !local_data.history.is_empty() {
                         for h in local_data.history {
-                            if !crumb.history.iter().any(|existing| existing.crumb_id == h.crumb_id) {
+                            if !crumb
+                                .history
+                                .iter()
+                                .any(|existing| existing.crumb_id == h.crumb_id)
+                            {
                                 crumb.history.push(h);
                             }
                         }
                     }
                     if !local_data.whispers.is_empty() {
                         for w in local_data.whispers {
-                            if !crumb.whispers.iter().any(|existing| existing.whisper_id == w.whisper_id || existing.message == w.message) {
+                            if !crumb.whispers.iter().any(|existing| {
+                                existing.whisper_id == w.whisper_id || existing.message == w.message
+                            }) {
                                 crumb.whispers.push(w);
                             }
                         }
@@ -293,7 +313,7 @@ pub fn load_or_init_dir_crumb(dir: &Path, purpose_opt: Option<CrumbPurpose>) -> 
 pub fn save_dir_crumb(crumb: &DirCrumb) {
     let dir = Path::new(&crumb.dir_path);
     let crumb_path = dir.join(CRUMB_FILENAME);
-    
+
     // Durable .crumb: keep architectural purpose, above/below, clean of ephemeral churn
     let mut durable_crumb = crumb.clone();
     durable_crumb.history = Vec::new(); // Ephemeral history lives in .crumb.local
@@ -324,7 +344,10 @@ pub fn record_directory_crumb(
         .map(|n| n.to_string_lossy().to_string())
         .unwrap_or_else(|| "dir".to_string());
 
-    let dir_name = dir.file_name().map(|n| n.to_string_lossy().to_string()).unwrap_or_else(|| "dir".to_string());
+    let dir_name = dir
+        .file_name()
+        .map(|n| n.to_string_lossy().to_string())
+        .unwrap_or_else(|| "dir".to_string());
     let mut local_data = load_local_crumb(&dir);
 
     let item = CrumbHistoryItem {
@@ -345,11 +368,11 @@ pub fn record_directory_crumb(
     save_local_crumb(&dir, &local_data);
 
     // If dir has a parent within project workspace, bubble awareness to parent .crumb.local
-    let home = std::env::var("HOME")
-        .or_else(|_| std::env::var("USERPROFILE"))
-        .unwrap_or_else(|_| "/".to_string());
     if let Some(parent) = dir.parent() {
-        if parent.starts_with(&home) && parent != dir {
+        let home = std::env::var("HOME")
+            .or_else(|_| std::env::var("USERPROFILE"))
+            .unwrap_or_default();
+        if !home.is_empty() && parent.starts_with(&home) && parent != dir {
             let mut parent_local = load_local_crumb(parent);
             let bubble_item = CrumbHistoryItem {
                 crumb_id: format!("bubble-{}", Utc::now().timestamp_nanos_opt().unwrap_or(0)),
@@ -363,7 +386,9 @@ pub fn record_directory_crumb(
             };
             parent_local.history.push(bubble_item);
             if parent_local.history.len() > 50 {
-                parent_local.history.drain(0..parent_local.history.len() - 50);
+                parent_local
+                    .history
+                    .drain(0..parent_local.history.len() - 50);
             }
             save_local_crumb(parent, &parent_local);
         }
@@ -371,12 +396,7 @@ pub fn record_directory_crumb(
 }
 
 /// Leaves a whisper message in a directory .crumb.local file.
-pub fn leave_dir_whisper(
-    from_agent: &str,
-    dir: &Path,
-    target_file: Option<&str>,
-    message: &str,
-) {
+pub fn leave_dir_whisper(from_agent: &str, dir: &Path, target_file: Option<&str>, message: &str) {
     let mut local_data = load_local_crumb(dir);
     let whisper = CrumbWhisper {
         whisper_id: format!("whisp-{}", Utc::now().timestamp_nanos_opt().unwrap_or(0)),
@@ -410,7 +430,9 @@ pub fn sniff_dir_crumb(target_path: &Path, current_agent: &str) -> Option<String
 
     // Check history for this target or directory
     for item in crumb.history.iter().rev() {
-        if (item.target == target_name || item.target.ends_with(&target_name) || target_path.is_dir())
+        if (item.target == target_name
+            || item.target.ends_with(&target_name)
+            || target_path.is_dir())
             && item.agent_id != current_agent
             && item.is_active()
         {
@@ -448,8 +470,12 @@ pub fn sniff_dir_crumb(target_path: &Path, current_agent: &str) -> Option<String
     }
 
     let mut out = format!("🐾 [DIRECTORY CRUMB: {}/.crumb]\n", dir.display());
-    if let Some(above_raw) = &crumb.above { let above = above_raw.to_above_info();
-        out.push_str(&format!("   ↑ Above: {} ({})\n", above.canonical, above.name));
+    if let Some(above_raw) = &crumb.above {
+        let above = above_raw.to_above_info();
+        out.push_str(&format!(
+            "   ↑ Above: {} ({})\n",
+            above.canonical, above.name
+        ));
     }
     if let Some(p) = &crumb.purpose {
         out.push_str(&format!("   🎯 Purpose: {}\n", p.statement.cyan()));
@@ -467,34 +493,77 @@ pub fn format_dir_crumb_tui(dir: &Path) -> String {
     let crumb = load_or_init_dir_crumb(dir, None);
 
     let mut out = String::new();
-    out.push_str(&format!("🧭 DIRECTORY CRUMB: {} ({})\n", crumb.dir_name.bold().cyan(), crumb.dir_path.dimmed()));
+    out.push_str(&format!(
+        "🧭 DIRECTORY CRUMB: {} ({})\n",
+        crumb.dir_name.bold().cyan(),
+        crumb.dir_path.dimmed()
+    ));
     out.push_str(&format!("   Description: {}\n", crumb.description));
     if let Some(p) = &crumb.purpose {
-        out.push_str(&format!("   🎯 PURPOSE:     {} [{} | by {}]\n", p.statement.bold().magenta(), p.lifecycle.cyan(), p.created_by.yellow()));
+        out.push_str(&format!(
+            "   🎯 PURPOSE:     {} [{} | by {}]\n",
+            p.statement.bold().magenta(),
+            p.lifecycle.cyan(),
+            p.created_by.yellow()
+        ));
     }
 
-    if let Some(above_raw) = &crumb.above { let above = above_raw.to_above_info();
-        out.push_str(&format!("   ↑ ABOVE: {} [{}]\n", above.name.bold().yellow(), above.canonical.dimmed()));
+    if let Some(above_raw) = &crumb.above {
+        let above = above_raw.to_above_info();
+        out.push_str(&format!(
+            "   ↑ ABOVE: {} [{}]\n",
+            above.name.bold().yellow(),
+            above.canonical.dimmed()
+        ));
     } else {
         out.push_str("   ↑ ABOVE: [Root workspace boundary]\n");
     }
 
-    let dirs: Vec<&str> = crumb.below.iter().filter(|i| i.item_type == "dir").map(|i| i.name.as_str()).collect();
-    let files: Vec<&str> = crumb.below.iter().filter(|i| i.item_type == "file").map(|i| i.name.as_str()).collect();
+    let dirs: Vec<&str> = crumb
+        .below
+        .iter()
+        .filter(|i| i.item_type == "dir")
+        .map(|i| i.name.as_str())
+        .collect();
+    let files: Vec<&str> = crumb
+        .below
+        .iter()
+        .filter(|i| i.item_type == "file")
+        .map(|i| i.name.as_str())
+        .collect();
 
-    out.push_str(&format!("   ↓ BELOW (Subdirectories): [{}]\n", dirs.join(", ").cyan()));
-    out.push_str(&format!("   ↓ BELOW (Files):          [{}]\n", files.join(", ").white()));
+    out.push_str(&format!(
+        "   ↓ BELOW (Subdirectories): [{}]\n",
+        dirs.join(", ").cyan()
+    ));
+    out.push_str(&format!(
+        "   ↓ BELOW (Files):          [{}]\n",
+        files.join(", ").white()
+    ));
 
-    out.push_str(&format!("\n📜 Agent Chronicle in this Directory (Total: {}):\n", crumb.history.len()));
+    out.push_str(&format!(
+        "\n📜 Agent Chronicle in this Directory (Total: {}):\n",
+        crumb.history.len()
+    ));
     if crumb.history.is_empty() {
         out.push_str("   (No previous actions recorded in this directory)\n");
     } else {
         for (i, h) in crumb.history.iter().rev().take(5).enumerate() {
             let elapsed = h.elapsed_secs();
-            let el_str = if elapsed < 60 { format!("{}s ago", elapsed) } else { format!("{}m ago", elapsed / 60) };
+            let el_str = if elapsed < 60 {
+                format!("{}s ago", elapsed)
+            } else {
+                format!("{}m ago", elapsed / 60)
+            };
             out.push_str(&format!(
                 "   {}. [{}] {} '{}' ({})\n      Intent: {}\n      Vector: {}\n",
-                i + 1, h.agent_id.bold().yellow(), h.action, h.target.green(), el_str, h.intent, h.vector.dimmed()
+                i + 1,
+                h.agent_id.bold().yellow(),
+                h.action,
+                h.target.green(),
+                el_str,
+                h.intent,
+                h.vector.dimmed()
             ));
         }
     }
@@ -502,7 +571,11 @@ pub fn format_dir_crumb_tui(dir: &Path) -> String {
     if !crumb.whispers.is_empty() {
         out.push_str("\n💬 Directory Whispers & Intercommunication:\n");
         for w in crumb.whispers.iter().rev().take(3) {
-            out.push_str(&format!("   • From [{}]: \"{}\"\n", w.from_agent.bold().cyan(), w.message));
+            out.push_str(&format!(
+                "   • From [{}]: \"{}\"\n",
+                w.from_agent.bold().cyan(),
+                w.message
+            ));
         }
     }
 
@@ -518,14 +591,20 @@ pub fn discover_workspace_crumbs_summary(start_dir: &Path) -> String {
         crumb.dir_name, crumb.dir_path, crumb.description
     );
 
-    if let Some(above_raw) = &crumb.above { let above = above_raw.to_above_info();
+    if let Some(above_raw) = &crumb.above {
+        let above = above_raw.to_above_info();
         s.push_str(&format!("↑ Above: {} ({})\n", above.name, above.canonical));
     }
     if let Some(p) = &crumb.purpose {
         s.push_str(&format!("🎯 Directory Purpose: {}\n", p.statement));
     }
 
-    let subdirs: Vec<&str> = crumb.below.iter().filter(|i| i.item_type == "dir").map(|i| i.name.as_str()).collect();
+    let subdirs: Vec<&str> = crumb
+        .below
+        .iter()
+        .filter(|i| i.item_type == "dir")
+        .map(|i| i.name.as_str())
+        .collect();
     if !subdirs.is_empty() {
         s.push_str(&format!("↓ Below Subdirs: [{}]\n", subdirs.join(", ")));
     }
@@ -533,7 +612,10 @@ pub fn discover_workspace_crumbs_summary(start_dir: &Path) -> String {
     if !crumb.history.is_empty() {
         s.push_str("Recent Actions in this Directory:\n");
         for h in crumb.history.iter().rev().take(3) {
-            s.push_str(&format!("• [{}] {} '{}' - Intent: '{}' -> Vector: '{}'\n", h.agent_id, h.action, h.target, h.intent, h.vector));
+            s.push_str(&format!(
+                "• [{}] {} '{}' - Intent: '{}' -> Vector: '{}'\n",
+                h.agent_id, h.action, h.target, h.intent, h.vector
+            ));
         }
     }
 
@@ -546,7 +628,6 @@ pub fn discover_workspace_crumbs_summary(start_dir: &Path) -> String {
 
     s
 }
-
 
 fn auto_sense_directory_purpose(dir: &Path) -> String {
     let readme = dir.join("README.md");
@@ -565,7 +646,11 @@ fn auto_sense_directory_purpose(dir: &Path) -> String {
         if let Ok(c) = fs::read_to_string(&cargo) {
             for line in c.lines() {
                 if line.starts_with("name =") {
-                    let name = line.replace("name =", "").replace("\"", "").trim().to_string();
+                    let name = line
+                        .replace("name =", "")
+                        .replace("\"", "")
+                        .trim()
+                        .to_string();
                     return format!("Rust crate codebase: {}", name);
                 }
             }
@@ -581,11 +666,19 @@ fn auto_sense_directory_purpose(dir: &Path) -> String {
             }
         }
     }
-    let dir_name = dir.file_name().map(|n| n.to_string_lossy().to_string()).unwrap_or_else(|| "workspace".to_string());
+    let dir_name = dir
+        .file_name()
+        .map(|n| n.to_string_lossy().to_string())
+        .unwrap_or_else(|| "workspace".to_string());
     format!("Workspace subsystem directory for {}", dir_name)
 }
 
-pub fn seed_directory_tree(root: &Path, recursive: bool, agent: &str, whisper: Option<&str>) -> usize {
+pub fn seed_directory_tree(
+    root: &Path,
+    recursive: bool,
+    agent: &str,
+    whisper: Option<&str>,
+) -> usize {
     let mut count = 0;
     if !recursive {
         load_or_init_dir_crumb(root, None);
@@ -634,7 +727,14 @@ pub fn record_crumb_action(
     intent: &str,
     vector: &str,
 ) {
-    record_directory_crumb(agent_id, session_id, &dir.join(target), action, intent, vector);
+    record_directory_crumb(
+        agent_id,
+        session_id,
+        &dir.join(target),
+        action,
+        intent,
+        vector,
+    );
 }
 
 #[cfg(test)]

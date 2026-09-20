@@ -1,12 +1,16 @@
 use clap::{Parser, Subcommand};
-use spark_crumbs::{add_crumb_whisper, format_dir_crumb_tui, record_crumb_action, seed_directory_tree, sniff_crumb};
+use spark_crumbs::{
+    add_crumb_whisper, format_dir_crumb_tui, record_crumb_action, seed_directory_tree, sniff_crumb,
+};
 use std::path::PathBuf;
 
 #[derive(Parser, Debug)]
 #[command(name = "spark-crumbs")]
 #[command(author = "AIEN <aien.atlas@proton.me>")]
 #[command(version = "0.1.0")]
-#[command(about = "High-speed native Rust distributed breadcrumb and agent scent engine for Sovereign SparkOS")]
+#[command(
+    about = "High-speed native Rust distributed breadcrumb and agent scent engine for Sovereign SparkOS"
+)]
 struct Cli {
     #[command(subcommand)]
     command: Commands,
@@ -22,7 +26,12 @@ enum Commands {
         #[arg(short, long, help = "Recursively seed all subdirectories")]
         recursive: bool,
 
-        #[arg(short, long, default_value = "AIEN", help = "Agent ID creating the crumb")]
+        #[arg(
+            short,
+            long,
+            default_value = "AIEN",
+            help = "Agent ID creating the crumb"
+        )]
         agent: String,
 
         #[arg(short, long, help = "Initial whisper message to plant")]
@@ -85,8 +94,17 @@ fn main() {
     let cli = Cli::parse();
 
     match cli.command {
-        Commands::Seed { dir, recursive, agent, whisper } => {
-            println!("Seeding directory crumbs at: {} (recursive: {})", dir.display(), recursive);
+        Commands::Seed {
+            dir,
+            recursive,
+            agent,
+            whisper,
+        } => {
+            println!(
+                "Seeding directory crumbs at: {} (recursive: {})",
+                dir.display(),
+                recursive
+            );
             let count = seed_directory_tree(&dir, recursive, &agent, whisper.as_deref());
             println!("Seeded {} directory crumbs successfully.", count);
         }
@@ -94,20 +112,53 @@ fn main() {
             if let Some(sniff) = sniff_crumb(&path, &agent) {
                 println!("{}", sniff);
             } else {
-                println!("No active peer scent or whispers detected on '{}'.", path.display());
+                println!(
+                    "No active peer scent or whispers detected on '{}'.",
+                    path.display()
+                );
             }
         }
         Commands::Show { dir } => {
             let card = format_dir_crumb_tui(&dir);
             println!("{}", card);
         }
-        Commands::Whisper { dir, message, agent, file } => {
+        Commands::Whisper {
+            dir,
+            message,
+            agent,
+            file,
+        } => {
             add_crumb_whisper(&dir, &agent, &message, file.as_deref());
-            println!("Planted whisper from [{}] in {}: '{}'", agent, dir.display(), message);
+            println!(
+                "Planted whisper from [{}] in {}: '{}'",
+                agent,
+                dir.display(),
+                message
+            );
         }
-        Commands::Record { dir, agent, action, target, intent, vector } => {
-            record_crumb_action(&dir, &agent, "cli-session", &action, &target, &intent, &vector);
-            println!("Recorded action '{}' on '{}' in {}.", action, target, dir.display());
+        Commands::Record {
+            dir,
+            agent,
+            action,
+            target,
+            intent,
+            vector,
+        } => {
+            record_crumb_action(
+                &dir,
+                &agent,
+                "cli-session",
+                &action,
+                &target,
+                &intent,
+                &vector,
+            );
+            println!(
+                "Recorded action '{}' on '{}' in {}.",
+                action,
+                target,
+                dir.display()
+            );
         }
     }
 }
