@@ -10,7 +10,7 @@ High-speed native Rust distributed breadcrumb, agent scent, and repository topog
    - Ephemeral `.crumb.local`: High-frequency agent actions, vectors, timestamps, and whispers with automated TTL expiration.
 3. **Peer Agent Sniffing**: Inspects target file or directory for recent peer modifications, intents, and whispers before modifying files.
 4. **Inter-Agent Whispering**: Non-blocking asynchronous message bus planted in directory roots.
-5. **Parallel Recursive Seeding**: Blazingly fast multi-threaded crawler to seed breadcrumbs across massive codebases.
+5. **Parallel Recursive Seeding**: Multi-threaded crawler to seed breadcrumbs across massive codebases.
 
 ## CLI Usage
 
