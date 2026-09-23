@@ -1,3 +1,7 @@
+> Archived: this repository is no longer authoritative. Canonical home: https://github.com/aien-dev/aien-sovereign-core/tree/main/crates/spark-crumbs
+>
+> History is preserved read-only. Open new work against the canonical home.
+
 # spark-crumbs
 
 High-speed native Rust distributed breadcrumb, agent scent, and repository topography engine for Sovereign SparkOS.
